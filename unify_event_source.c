@@ -65,7 +65,9 @@ int main() {
     if (listen(sfd, 64) == -1) error_handling("listen error");
     if ((epfd = epoll_create(EPOLL_SIZE)) == -1) error_handling("epoll create error");
     addfd(sfd, epfd);
-    if (pipe(pipefd) == -1) error_handling("pipe error");
+	if (socketpair(PF_UNIX, SOCK_STREAM, 0, pipefd));
+    set_nonblocking(pipefd[1]);
+	addfd(pipefd[0], epfd);
     int stop = 0;
     while (!stop) {
         int num = epoll_wait(epfd, events, EPOLL_SIZE, -1);
