@@ -42,6 +42,7 @@ void TcpServer::HandleNewConnect() {
         loop->QueueInLoop(std::bind(&Channel::TestNewEvent, newChannel, newChannel));
         // loop -> Next Loop
     }
+    acceptChannel_->SetEvents(EPOLLET | EPOLLIN);
 }
 
 void TcpServer::Start() {

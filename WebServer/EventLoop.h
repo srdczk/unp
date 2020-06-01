@@ -35,6 +35,7 @@ public:
 
     void AddToPoller(std::shared_ptr<Channel> channel);
     void UpdatePoller(std::shared_ptr<Channel> channel);
+    void RemovePoller(std::shared_ptr<Channel> channel);
 private:
 
     int CreateEventFd();

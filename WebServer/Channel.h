@@ -40,6 +40,7 @@ public:
 
     void TestNewEvent(ChannelPtr channel);
 private:
+    static const int kBufSize;
     EventLoop *loop_;
     int fd_;
     int events_;

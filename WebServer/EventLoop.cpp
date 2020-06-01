@@ -124,3 +124,7 @@ void EventLoop::UpdatePoller(std::shared_ptr<Channel> channel) {
     poller_->EpollMod(channel);
 }
 
+void EventLoop::RemovePoller(std::shared_ptr<Channel> channel) {
+    poller_->EpollDel(channel);
+}
+

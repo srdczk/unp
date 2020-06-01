@@ -1,5 +1,6 @@
 #include "Epoller.h"
 #include <sys/epoll.h>
+#include <unistd.h>
 #include <string.h>
 
 const int Epoller::kEpollSize = 4096;
@@ -58,11 +59,13 @@ int Epoller::EpollDel(Epoller::ChannelPtr channel) {
     struct epoll_event event;
     event.data.fd = fd;
     event.events = static_cast<uint32_t>(events);
-    channelMap_.erase(fd);
     if (epoll_ctl(epFd_, EPOLL_CTL_DEL, fd, &event) == -1) {
         // TODO: Add Log
         return -1;
     }
+    // channel will ~Channel -> close
+    channelMap_.erase(fd);
+    close(fd);
     return 0;
 }
 
