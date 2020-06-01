@@ -1,0 +1,106 @@
+#include "Epoller.h"
+#include <sys/epoll.h>
+#include <string.h>
+
+const int Epoller::kEpollSize = 4096;
+
+Epoller::Epoller():
+epFd_(epoll_create(kEpollSize)),
+readyEvents_(kEpollSize) {
+    assert(epFd_ != -1);
+}
+
+int Epoller::EpollAdd(Epoller::ChannelPtr channel) {
+    auto fd = channel->Fd();
+    assert(!channelMap_.count(fd));
+    channelMap_[fd] = channel;
+    auto events = channel->GetEvents();
+    channel->UpdateLastEvents();
+    // add to poller -> set events = 0
+    channel->SetEvents(0);
+    struct epoll_event event;
+    event.data.fd = fd;
+    event.events = static_cast<uint32_t>(events);
+
+    if (epoll_ctl(epFd_, EPOLL_CTL_ADD, fd, &event) == -1) {
+        // TODO:LOG EPOLL FAILED
+        return -1;
+    }
+
+    return 0;
+}
+
+int Epoller::EpollMod(Epoller::ChannelPtr channel) {
+    auto fd = channel->Fd();
+    // should have add to poller
+    assert(channelMap_.count(fd));
+    auto events = channel->GetEvents();
+    if (channel->UpdateLastEvents()) {
+        channel->SetEvents(0);
+        struct epoll_event event;
+        event.data.fd = fd;
+        event.events = static_cast<uint32_t>(events);
+        if (epoll_ctl(epFd_, EPOLL_CTL_MOD, fd, &event) == -1) {
+            // TODO: Add LOG
+            return -1;
+        }
+        return 0;
+    }
+    // needn't mod
+    return -1;
+}
+
+int Epoller::EpollDel(Epoller::ChannelPtr channel) {
+    auto fd = channel->Fd();
+    // should have add to poller
+    assert(channelMap_.count(fd));
+    auto events = channel->GetLastEvents();
+    struct epoll_event event;
+    event.data.fd = fd;
+    event.events = static_cast<uint32_t>(events);
+    channelMap_.erase(fd);
+    if (epoll_ctl(epFd_, EPOLL_CTL_DEL, fd, &event) == -1) {
+        // TODO: Add Log
+        return -1;
+    }
+    return 0;
+}
+
+bool Epoller::Contains(ChannelPtr channel) {
+    return channelMap_.count(channel->Fd());
+}
+
+std::vector<Epoller::ChannelPtr> Epoller::ReadyEvents(int num) {
+    std::vector<ChannelPtr> res;
+
+    for (int i = 0; i < num; ++i) {
+        auto event = readyEvents_[i];
+        if (channelMap_.count(event.data.fd)) {
+            auto channel = channelMap_[event.data.fd];
+            channel->SetREvents(event.events);
+            res.push_back(channel);
+        }
+    }
+
+    return res;
+}
+
+std::vector<Epoller::ChannelPtr> Epoller::EpollWait() {
+    while (true) {
+
+        int num = epoll_wait(epFd_, &*readyEvents_.begin(), readyEvents_.size(),-1);
+        if (num <= 0) {
+            if (num < 0)
+                char *p = strerror(errno);
+            continue;
+        }
+        auto res = ReadyEvents(num);
+        if (!res.empty())
+            return res;
+    }
+}
+
+
+
+
+
