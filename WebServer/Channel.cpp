@@ -18,14 +18,17 @@
 //CallbackType updateCb_;
 
 const int Channel::kBufSize = 1024;
+const uint64_t Channel::kDefaultTime = 2000;
+
 
 Channel::Channel(EventLoop *loop, int fd):
 loop_(loop),
 fd_(fd),
 events_(0),
 rEvents_(0),
-lastEvents_(0) {
-}
+lastEvents_(0),
+index_(-1),
+expiredTime_(0) { }
 
 Channel::~Channel() {
     close(fd_);
@@ -49,64 +52,25 @@ void Channel::HandleEvents() {
         updateCb_();
 }
 
-void Channel::TestNewEvent(ChannelPtr channel) {
-    channel->SetReadCallback(std::bind(&Channel::TestRead, this, channel));
-    channel->SetUpdateCallback(std::bind(&Channel::TestUpdate, this, channel));
-    channel->SetEvents(EPOLLIN | EPOLLET);
-    loop_->AddToPoller(channel);
+void Channel::TestNewEvent() {
+    SetReadCallback(std::bind(&Channel::TestRead, this));
+    SetUpdateCallback(std::bind(&Channel::TestUpdate, this));
+    SetEvents(EPOLLIN | EPOLLET);
+    loop_->AddToPoller(this, kDefaultTime);
 }
 
-void Channel::TestRead(ChannelPtr channel) {
-    int len;
-    char buff[kBufSize];
-    len = NetHelper::GetLine(fd_, buff, kBufSize);
-    if (!len) {
-        // TODO: Add Log
-        std::cout << "Net First GetLine Failed";
-        return;
+void Channel::TestRead() {
+    std::string res;
+    NetHelper::ReadN(fd_, res);
+    for (auto &c : res) {
+        if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
     }
-    std::string firstLine(buff);
-    std::cout << "FirstLine:" << firstLine << "\n";
-    while (len) {
-        len = NetHelper::GetLine(fd_, buff, kBufSize);
-    }
-    // parse request
-//
-//    struct timeb tp;
-//    ftime(&tp);
-//    time_t now = tp.time;
-//    tm time;
-//    localtime_r(&now, &time);
-//    char timeString[64];
-//    memset(timeString, '\0', sizeof(now));
-//    snprintf(timeString, sizeof(timeString), "%04d-%02d-%02d %02d:%02d:%02d:%03d", time.tm_year + 1900, time.tm_mon + 1, time.tm_mday, time.tm_hour, time.tm_min, time.tm_sec, tp.millitm);
-//    firstLine = "<h1>" + firstLine;
-//    firstLine += "</h1>\r\n<hr>\r\n";
-//    std::string nowString(timeString);
-//    firstLine += nowString;
-//    std::string header;
-//    header += "HTTP/1.1 200 OK\r\n";
-////    header += "Content-Type: image/png\r\n";
-////    header += "Content-Length: " + std::to_string(sizeof(favicon)) + "\r\n";
-//    header += "Content-Type: text/html\r\n";
-//    header += "Content-Length: " + std::to_string(firstLine.length()) + "\r\n";
-//    header += "Server: CZK's Web Server\r\n";
-//
-//    header += "\r\n";
-//    header += firstLine;
-//    NetHelper::WriteN(fd_, header);
-    if (!strncasecmp("get", firstLine.data(), 3)) {
-        // Do Request -> DisConnect
-        NetHelper::HttpRequest(firstLine.data(), fd_);
-        // request Do -> Close() -> channel -> (Delete)
-        // http don't keep alive
-//        disconnect(cfd, epfd);
-    }
+    NetHelper::WriteN(fd_, res);
+    SetEvents(EPOLLIN | EPOLLET);
 }
 
-void Channel::TestUpdate(ChannelPtr channel) {
-    loop_->RemovePoller(channel);
-//    loop_->UpdatePoller(channel);
+void Channel::TestUpdate() {
+    loop_->UpdatePoller(this, kDefaultTime);
 }
 
 

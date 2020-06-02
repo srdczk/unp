@@ -20,7 +20,7 @@ threadPool_(std::make_shared<EventLoopThreadPool>(loop_, threadNum_)),
 started_(false),
 port_(port),
 listenFd_(NetHelper::BindAndListen(port_)),
-acceptChannel_(std::make_shared<Channel>(loop_, listenFd_)) {
+acceptChannel_(new Channel(loop_, listenFd_)) {
     // set Non Block
     NetHelper::IgnorePipe();
     NetHelper::SetNonBlocking(listenFd_);
@@ -38,8 +38,8 @@ void TcpServer::HandleNewConnect() {
         NetHelper::SetNonBlocking(cfd);
         NetHelper::SetNodelay(cfd);
 
-        auto newChannel = std::make_shared<Channel>(loop, cfd);
-        loop->QueueInLoop(std::bind(&Channel::TestNewEvent, newChannel, newChannel));
+        auto newChannel = new Channel(loop, cfd);
+        loop->QueueInLoop(std::bind(&Channel::TestNewEvent, newChannel));
         // loop -> Next Loop
     }
     acceptChannel_->SetEvents(EPOLLET | EPOLLIN);
@@ -52,4 +52,8 @@ void TcpServer::Start() {
     acceptChannel_->SetUpdateCallback(std::bind(&TcpServer::HandleUpdate, this));
     loop_->AddToPoller(acceptChannel_);
     started_ = true;
+}
+
+TcpServer::~TcpServer() {
+    loop_->RemovePoller(acceptChannel_);
 }

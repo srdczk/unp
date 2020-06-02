@@ -5,7 +5,6 @@
 
 class Channel {
 public:
-    typedef std::shared_ptr<Channel> ChannelPtr;
     typedef std::function<void()> CallbackType;
     Channel(EventLoop *loop, int fd);
 
@@ -34,19 +33,30 @@ public:
 
     void HandleEvents();
 
-    void TestRead(ChannelPtr channel);
+    void TestRead();
 
-    void TestUpdate(ChannelPtr channel);
+    void TestUpdate();
 
-    void TestNewEvent(ChannelPtr channel);
+    void TestNewEvent();
+
+    // viarables in heap
+    int Index() { return index_; }
+    void SetIndex(int index) { index_ = index; }
+
+    uint64_t ExpiredTime() { return expiredTime_; }
+    void SetExpiredTime(uint64_t expiredTime) { expiredTime_ = expiredTime; }
 private:
     static const int kBufSize;
+    static const uint64_t kDefaultTime;
     EventLoop *loop_;
     int fd_;
     int events_;
     // return events -> decide return events
     int rEvents_;
     int lastEvents_;
+    // add to timer ->
+    int index_;
+    uint64_t expiredTime_;
     // some callback
     CallbackType readCb_;
     CallbackType writeCb_;

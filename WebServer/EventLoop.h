@@ -33,9 +33,9 @@ public:
     void RunInLoop(Task task);
     void QueueInLoop(Task task);
 
-    void AddToPoller(std::shared_ptr<Channel> channel);
-    void UpdatePoller(std::shared_ptr<Channel> channel);
-    void RemovePoller(std::shared_ptr<Channel> channel);
+    void AddToPoller(Channel *channel, uint64_t timeout = 0);
+    void UpdatePoller(Channel *channel, uint64_t timeout = 0);
+    void RemovePoller(Channel *channel);
 private:
 
     int CreateEventFd();
@@ -52,11 +52,10 @@ private:
     bool doingTasks_;
     std::shared_ptr<Epoller> poller_;
     int wakeupFd_;
-    std::shared_ptr<Channel> wakeupChannel_;
+    Channel *wakeupChannel_;
     // lock to protect task vector
     std::mutex mutex_;
     std::vector<Task> tasks_;
-
 };
 
 

@@ -17,7 +17,7 @@ handlingEvents_(false),
 doingTasks_(false),
 poller_(std::make_shared<Epoller>()),
 wakeupFd_(CreateEventFd()),
-wakeupChannel_(std::make_shared<Channel>(this, wakeupFd_)) {
+wakeupChannel_(new Channel(this, wakeupFd_)) {
     // add wakeupFd to poller
     assert(!threadLoop);
     threadLoop = this;
@@ -52,6 +52,7 @@ void EventLoop::Loop() {
             event->HandleEvents();
         handlingEvents_ = false;
         DoTasks();
+        poller_->HandleExpired();
     }
 
     loop_ = false;
@@ -60,6 +61,7 @@ void EventLoop::Loop() {
 
 
 EventLoop::~EventLoop() {
+    RemovePoller(wakeupChannel_);
     threadLoop = nullptr;
 }
 
@@ -116,15 +118,15 @@ void EventLoop::QueueInLoop(EventLoop::Task task) {
     if (!IsInThread() || doingTasks_) Wakeup();
 }
 
-void EventLoop::AddToPoller(std::shared_ptr<Channel> channel) {
-    poller_->EpollAdd(channel);
+void EventLoop::AddToPoller(Channel *channel, uint64_t timeout) {
+    poller_->EpollAdd(channel, timeout);
 }
 
-void EventLoop::UpdatePoller(std::shared_ptr<Channel> channel) {
-    poller_->EpollMod(channel);
+void EventLoop::UpdatePoller(Channel *channel, uint64_t timeout) {
+    poller_->EpollMod(channel, timeout);
 }
 
-void EventLoop::RemovePoller(std::shared_ptr<Channel> channel) {
+void EventLoop::RemovePoller(Channel *channel) {
     poller_->EpollDel(channel);
 }
 

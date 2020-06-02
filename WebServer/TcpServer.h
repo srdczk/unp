@@ -10,9 +10,9 @@
 // implement echo server
 class TcpServer {
 public:
-    typedef std::shared_ptr<Channel> ChannelPtr;
+    typedef Channel *ChannelPtr;
     TcpServer(EventLoop *loop, int threadNum, int port);
-    ~TcpServer() = default;
+    ~TcpServer();
 
     void Start();
 

@@ -1,4 +1,5 @@
 #include "Epoller.h"
+#include "NetHelper.h"
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <string.h>
@@ -11,7 +12,12 @@ readyEvents_(kEpollSize) {
     assert(epFd_ != -1);
 }
 
-int Epoller::EpollAdd(Epoller::ChannelPtr channel) {
+int Epoller::EpollAdd(Epoller::ChannelPtr channel, uint64_t timeout) {
+    assert(channel->Index() == -1);
+    if (timeout) {
+        // add to heap
+        heap_.Insert(channel, timeout);
+    }
     auto fd = channel->Fd();
     assert(!channelMap_.count(fd));
     channelMap_[fd] = channel;
@@ -31,7 +37,11 @@ int Epoller::EpollAdd(Epoller::ChannelPtr channel) {
     return 0;
 }
 
-int Epoller::EpollMod(Epoller::ChannelPtr channel) {
+int Epoller::EpollMod(Epoller::ChannelPtr channel, uint64_t timeout) {
+    if (timeout) {
+        assert(channel->Index() != -1);
+        heap_.Change(channel, timeout);
+    }
     auto fd = channel->Fd();
     // should have add to poller
     assert(channelMap_.count(fd));
@@ -65,7 +75,11 @@ int Epoller::EpollDel(Epoller::ChannelPtr channel) {
     }
     // channel will ~Channel -> close
     channelMap_.erase(fd);
-    close(fd);
+    // delete Channel (will not use)
+    if (channel->Index() != -1) {
+        heap_.Delete(channel);
+    }
+    delete channel;
     return 0;
 }
 
@@ -100,6 +114,15 @@ std::vector<Epoller::ChannelPtr> Epoller::EpollWait() {
         auto res = ReadyEvents(num);
         if (!res.empty())
             return res;
+    }
+}
+
+void Epoller::HandleExpired() {
+    // delete from heap_
+    auto now = NetHelper::GetExpiredTime(0);
+    while (heap_.Top() && heap_.Top()->ExpiredTime() < now) {
+        auto top = heap_.Top();
+        EpollDel(top);
     }
 }
 
